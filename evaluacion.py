@@ -17,9 +17,6 @@ sys.path.append(
 
 idw = sys.argv[1]
 direccion = sys.argv[2]
-# print(idwp)
-# idw='w002'
-# direccion=1
 # recibe de funcion EVALUAR DE APP MOVIL tres parametros idw, fecha_momento, izq o der
 
 
@@ -29,54 +26,97 @@ def analisis(datos, direccion):
     angulos_y = np.array([])
     secuencia_x = np.array([])
     secuencia_y = np.array([])
-
     alpha = 0.98  
     beta = 0.02 
-
+    ang_x_prev = 0.0
+    ang_y_prev = 0.0
     for dato in datos:
-        accel_ang_x=math.atan(float(dato[1]) /math.sqrt(pow(float(dato[1]) ,2) + pow(float(dato[2]) ,2)))*(180.0/3.14)
-        accel_ang_y=math.atan(-float(dato[0]) /math.sqrt(pow(float(dato[1]) ,2) + pow(float(dato[2]) ,2)))*(180.0/3.14)
-        ang_x = alpha*(ang_x_prev+(float(dato[3]) /131)*0.001) + beta*accel_ang_x;
-        ang_y = alpha*(ang_y_prev+(float(dato[5]) /131)*0.001) + beta*accel_ang_y;
+        denominador = math.sqrt(pow(float(dato[1]), 2) + pow(float(dato[2]), 2))
+    if denominador > 0:
+        d1 = math.atan(float(dato[1]) / math.sqrt(pow(float(dato[1]), 2) + pow(float(dato[2]), 2))) * (180.0 / math.pi)
+        d2 = math.atan(-float(dato[0]) / math.sqrt(pow(float(dato[1]), 2) + pow(float(dato[2]), 2))) * (180.0 / math.pi)
+    else:
+        d1 = 0
+        d2 = 2
+                                       
+    accel_ang_x=d1
+    accel_ang_y=d2
+    ang_x = alpha*(ang_x_prev+(float(dato[3]) /131)*0.001) + beta*accel_ang_x;
+    ang_y = alpha*(ang_y_prev+(float(dato[5]) /131)*0.001) + beta*accel_ang_y;
+    ang_x_prev=ang_x;
+    ang_y_prev=ang_y;
 
-        ang_x_prev=ang_x;
-        ang_y_prev=ang_y;
-        #muestra =math.sqrt((ang_x*ang_x)+(ang_y*ang_y)) #{ang_x,ang_y}              
-        #datos_escalados = np.append(datos_escalados, muestra) 
-        angulos_x = np.append(angulos_x, ang_x)
-        angulos_y = np.append(angulos_y, ang_y)
+    angulos_x = np.append(angulos_x, ang_x)
+    angulos_y = np.append(angulos_y, ang_y)
 
-    #for dato in datos:
-    #    muestra = ((float(dato[0]) * (9.81/16384.0)) + (float(dato[1]) * (9.81/16384.0)) + (float(dato[2]) * (9.81/16384.0)) + (
-    #        float(dato[3]) * (1000.0/8192.0)) + (float(dato[4]) * (1000.0/8192.0)) + (float(dato[5]) * (1000.0/8192.0)))/6
-    #datos_escalados = np.append(datos_escalados, muestra)
-
-    #datos_escalados = datos_escalados.reshape(len(datos_escalados), 1)
     t = np.arange(len(angulos_x))
     secuencia_x = list(zip(t, angulos_x))
     secuencia_y = list(zip(t, angulos_y))
 
+
 # ---------------dtw
 # # Crear secuencias
-    x = datos_escalados
-
     if (direccion == "1"):
-        y = np.load('datosReferenciaIzquierda.npy')
+        experto_x = np.load('Experto1_IzquierdaSecuencia_x.npy')
+        experto_y = np.load('Experto1_IzquierdaSecuencia_y.npy')
+        valores = [292,584,876,1168]
         d = "Izquierda"
     elif (direccion == "2"):
-        y = np.load('datosReferenciaCentro.npy')
+        experto_x = np.load('Experto1_CentroSecuencia_x.npy')
+        experto_y = np.load('Experto1_CentroSecuencia_y.npy')
+        valores = [125,250,375,500]
         d = "Centro"
     elif (direccion == "3"):
-        y = np.load('datosReferenciaDerecha.npy')
+        experto_x = np.load('Experto1_DerechaSecuencia_x.npy')
+        experto_y = np.load('Experto1_DerechaSecuencia_y.npy')
+        valores = [345,690,1035,1380]
         d = "Derecha"
     else:
         print('error al cargar los datos')
 
+    x = experto_x
+    xx = np.array([])
+    for i in x:
+        xx = np.append(xx,float(i[1]))
+    xx = xx.reshape(len(xx), 1)
+
+    y = experto_y
+    yy = np.array([])
+    for i in y:
+        yy = np.append(yy,float(i[1]))
+    yy = yy.reshape(len(yy), 1)
+
+    dx = secuencia_x
+    dx = np.array([])
+    for i in dx:
+        dx = np.append(dx,float(i[1]))
+    dx = dx.reshape(len(dx), 1)
+
+    dy = secuencia_y
+    dy = np.array([])
+    for i in dy:
+        dy = np.append(dy,float(i[1]))
+    dy = dy.reshape(len(dy), 1)
 
 # -------------------------------------------------------------------------------
-    dtw_distance, warp_path = fastdtw(x, y, dist=euclidean)
+    distancia_x, path_x = fastdtw(xx, dx, dist=euclidean)
+    distancia_y, path_y = fastdtw(yy, dy, dist=euclidean)
 # -------------------------------------------------------------------------------
-    return (str(dtw_distance), d)
+    
+    distancia_xy = round(math.sqrt(pow(x,2)+pow(y,2)),2)
+
+    if valores[0] >= distancia_xy:
+        evaluacion = 'Excelente'
+    elif valores[0] < distancia_xy and valores[1] >= distancia_xy:
+        evaluacion = 'Sobresaliente'
+    elif valores[1] < distancia_xy and valores[2] >= distancia_xy:
+        evaluacion = 'Bueno'
+    elif valores[2] < distancia_xy and valores[3] >= distancia_xy:
+        evaluacion = 'Regular'
+    else:
+        evaluacion = 'Malo'
+        
+    return (evaluacion, d)
 
 
 # ------------------------------------------------SQL--------------------------------------
@@ -107,9 +147,6 @@ cur.close()
 miConexion.close()
 
 # ------------------------------------FIN SQL----------------------------------------------
-
-# preprocesamiento: escalar valores, promedio
-
 
 # #//retorne valor
 print(dtw_distance)
